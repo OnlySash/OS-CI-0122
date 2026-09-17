@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
+#include <sys/shm.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <time.h>
@@ -14,14 +15,11 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#include "Buzon.h"
+#define MAXPARTICIPANTES 10
+#define EMISOR_INVASOR   -2   /* nunca coincide con un id real (0..n-1) ni con -1 (fin de juego) */
+#define NO_REGISTRADO    -1    /* aun no se registro el emisor valido para este participante */
 
-
-
-    int randomNum( int min, int max );
-    int cambiarPapa( int papa );
-
-   /**
+/**
   *  Estructura para el paso de mensajes entre procesos
  **/
     struct RondaPapa {
@@ -32,7 +30,7 @@
        // otros elementos a definir por el estudiante
     };
 
-    struct papa{
+    struct procesos{
         int id;
         bool activo;
     };
@@ -48,15 +46,22 @@
     */
     };
 
-    int randomNum(int min, int max);
-    int cambiarPapa(int papa);
+    struct estado{
+        bool activo[MAXPARTICIPANTES];
+        int  ganador;   // -1 cuando el juego está en curso 
+    };
+ 
+    int randomNum( int min, int max );
+    int cambiarPapa( int papa );
+    int siguienteParticipante(int actual, int n, int direccion);
 
-    int participante(int id, int buzon, struct papa *papa, struct param *parametros);
-    int invasor(int id);
+    int ronda(int buzonId, int procesoId, int siguiente,int *emisorValido, struct estado *estado, struct param *parametros);
+    void jugar(int buzonId, int procesoId, int siguiente, struct estado *estado, struct param *parametros );
 
-    void ganar(int id);
-    void jugar(int id, int buzon, struct papa *papa, struct param *parametros);
-    void ronda(int id, int buzon, struct papa *papa, struct param *parametros);
+    void participante( int buzonId, int procesoId, struct estado *estado, struct param *parametros);
+    void invasor(int buzonId, int n, struct estado *estado);
+
+    void ganar(int procesoId);
 
     void iniciarParametros(struct param *parametros);
     void iniciaJuego();
