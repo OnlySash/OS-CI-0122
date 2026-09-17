@@ -48,10 +48,10 @@ int ronda(int buzonId, int procesoId, int siguiente,int *emisorValido, struct es
       return -1;
    }
  
-   // Mensaje especial de fin de juego
+   // Mensaje especial de fin de juego al ganar
    if ( msg.emisor == -1 ) {
       if ( procesoId == msg.mensaje ) {
-         ganar( procesoId );
+         printf("El participante %d ha ganado el juego\n", procesoId);
       }
       return 1;
    }
@@ -63,13 +63,13 @@ int ronda(int buzonId, int procesoId, int siguiente,int *emisorValido, struct es
       printf( "El participante %d descarto un mensaje invalido (emisor %d)\n", procesoId, msg.emisor );
       return 0;   // se descarta: no se procesa ni se reenvia, se sigue jugando
    }
- 
+   // Valida que se recibió
    if ( estado->activo[procesoId] ) {
       printf( "El participante %d ha recibido el mensaje %d\n", procesoId, msg.mensaje );
- 
+
+      // Revisa si pierde
       int resultado = cambiarPapa( msg.mensaje );
       msg.mensaje = resultado;
- 
       if ( resultado == 1 ) {
          printf( "El participante %d ha perdido\n", procesoId );
          estado->activo[procesoId] = false;
@@ -110,6 +110,9 @@ int ronda(int buzonId, int procesoId, int siguiente,int *emisorValido, struct es
    return 0;
 }
 
+/*
+* Proceso infinito de rondas
+*/
 void jugar( int buzonId, int procesoId, int siguiente, struct estado *estado, struct param *parametros ) {
    int resultado;
    int emisorValido = NO_REGISTRADO;
@@ -125,8 +128,10 @@ void jugar( int buzonId, int procesoId, int siguiente, struct estado *estado, st
  **/
 void participante( int buzonId, int procesoId, struct estado *estado, struct param *parametros)
 {
+    //Guia el siguiente
    int siguiente = siguienteParticipante(procesoId, parametros->n, parametros->d);
    
+   // Genera el mensaje y asigna los parámetros del mismo
    if ( procesoId == parametros->v ) {
       int mensaje = randomNum( 1, 100 );
       printf( "El participante %d ha creado el mensaje %d\n", procesoId, mensaje );
@@ -141,10 +146,3 @@ void participante( int buzonId, int procesoId, struct estado *estado, struct par
    jugar( buzonId, procesoId, siguiente, estado, parametros );
 }
 
-/**
-  *   El último en pie gana, 
-  * pone mensaje negativo para finalizar el resto de procesos 
-  **/
-void ganar (int procesoId){
-   printf("El participante %d ha ganado el juego\n", procesoId);
-}
