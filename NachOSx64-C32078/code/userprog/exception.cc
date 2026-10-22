@@ -28,8 +28,57 @@
 #include "system.h"
 #include "syscall.h"
 
+#include <unistd.h>
+#include <stdio.h>
+#include <string.h>
+
 #define SC_NachOS	015177
 
+#include <unistd.h>
+#include <stdio.h>
+#include <string.h>
+
+// Sin esto el programa repite el mismo syscall para siempre
+static void runPC()
+{
+    machine->WriteRegister(PrevPCReg, machine->ReadRegister(PCReg));
+    machine->WriteRegister(PCReg, machine->ReadRegister(NextPCReg));
+    machine->WriteRegister(NextPCReg, machine->ReadRegister(NextPCReg) + 4);
+}
+
+// Con paginación hay que traducir cada byte con ReadMem/WriteMem
+static bool copyCharUser(int direccion, char *destino, int maximo)
+{
+    int valor;
+    for (int i = 0; i < maximo - 1; i++) {
+        if (!machine->ReadMem(direccion + i, 1, &valor))
+            return false;
+        destino[i] = (char)valor;
+        if (destino[i] == '\0')
+            return true;
+    }
+    destino[maximo - 1] = '\0';
+    return true;
+}
+
+static bool copyFromUser(int direccion, char *destino, int cantidad)
+{
+    int valor;
+    for (int i = 0; i < cantidad; i++) {
+        if (!machine->ReadMem(direccion + i, 1, &valor))
+            return false;
+        destino[i] = (char)valor;
+    }
+    return true;
+}
+
+static bool copyToUser (int direccion, const char *origen, int cantidad)
+{
+    for (int i = 0; i < cantidad; i++)
+        if (!machine->WriteMem(direccion + i, 1, (int)(unsigned char)origen[i]))
+            return false;
+    return true;
+}
 
 /*
  *  System call interface: Halt()
@@ -46,6 +95,8 @@ void NachOS_Halt() {		// System call 0
  *  System call interface: void Exit( int )
  */
 void NachOS_Exit() {		// System call 1
+   DEBUG('a', "Exit(%d)\n", machine->ReadRegister(4));
+   currentThread->Finish();
 
 }
 
@@ -68,6 +119,9 @@ void NachOS_Join() {		// System call 3
  *  System call interface: void Create( char * )
  */
 void NachOS_Create() {		// System call 4
+    char nombre[128];
+    if (copyCharUser(machine->ReadRegister(4), nombre, sizeof(nombre)))
+        fileSystem->Create(nombre, 0);
 }
 
 
@@ -75,6 +129,25 @@ void NachOS_Create() {		// System call 4
  *  System call interface: OpenFileId Open( char * )
  */
 void NachOS_Open() {		// System call 5
+    char name[128];
+    int fd = -1;
+
+    if (copyCharUser(machine->ReadRegister(4), name, sizeof(name))) {
+        OpenFile *file = fileSystem->Open(name);
+        if (file != NULL) {
+            TableFiles *t = currentThread->space->table;
+            for (int i = 3; i < MAX_FILES && fd == -1; i++) {
+                if (!t->used[i]) {
+                    t->used[i] = true;
+                    t->file[i] = file;
+                    fd = i;
+                }
+            }
+            if (fd == -1)
+                delete file;      // tabla llena
+        }
+    }
+    machine->WriteRegister(2, fd);
 }
 
 
@@ -82,6 +155,26 @@ void NachOS_Open() {		// System call 5
  *  System call interface: OpenFileId Write( char *, int, OpenFileId )
  */
 void NachOS_Write() {		// System call 6
+    int address = machine->ReadRegister(4);
+    int size = machine->ReadRegister(5);
+    int fd = machine->ReadRegister(6);
+    int written = -1;
+    TableFiles *t = currentThread->space->table;
+
+    if (size > 0 && fd >= 0 && fd < MAX_FILES && t->used[fd]) {
+        char *buffer = new char[size];
+        if (copyFromUser(address, buffer, size)) {
+            if (fd == ConsoleOutput || fd == ConsoleError) {
+                fwrite(buffer, 1, size, stdout);
+                fflush(stdout);
+                written = size;
+            } else if (fd != ConsoleInput) {
+                written = t->file[fd]->Write(buffer, size);
+            }
+        }
+        delete [] buffer;
+    }
+    machine->WriteRegister(2, written);
 }
 
 
@@ -89,6 +182,24 @@ void NachOS_Write() {		// System call 6
  *  System call interface: OpenFileId Read( char *, int, OpenFileId )
  */
 void NachOS_Read() {		// System call 7
+    int address = machine->ReadRegister(4);
+    int size = machine->ReadRegister(5);
+    int fd = machine->ReadRegister(6);
+    int read = -1;
+    TableFiles *t = currentThread->space->table;
+
+    if (size > 0 && fd >= 0 && fd < MAX_FILES && t->used[fd]) {
+        char *buffer = new char[size];
+        if (fd == ConsoleInput)
+            read = ::read(0, buffer, size);
+        else if (fd > ConsoleError)
+            read = t->file[fd]->Read(buffer, size);
+
+        if (read > 0 && !copyToUser(address, buffer, read))
+            read = -1;
+        delete [] buffer;
+    }
+    machine->WriteRegister(2, read);
 }
 
 
@@ -96,6 +207,14 @@ void NachOS_Read() {		// System call 7
  *  System call interface: void Close( OpenFileId )
  */
 void NachOS_Close() {		// System call 8
+   int fd = machine->ReadRegister(4);
+    TableFiles *t = currentThread->space->table;
+
+    if (fd > ConsoleError && fd < MAX_FILES && t->used[fd]) {
+        delete t->file[fd];
+        t->file[fd] = NULL;
+        t->used[fd] = false;
+    }
 }
 
 
@@ -110,6 +229,7 @@ void NachOS_Fork() {		// System call 9
  *  System call interface: void Yield()
  */
 void NachOS_Yield() {		// System call 10
+   currentThread->Yield();
 }
 
 
@@ -417,5 +537,5 @@ ExceptionHandler(ExceptionType which)
           ASSERT( false );
           break;
     }
-
+    runPC();
 }

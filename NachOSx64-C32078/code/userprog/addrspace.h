@@ -20,6 +20,20 @@
 
 #define UserStackSize		1024 	// increase this as necessary!
 
+#define MAX_FILES 32
+
+struct TableFiles {
+    OpenFile *file[MAX_FILES];   // NULL si está libre
+    bool used[MAX_FILES];          // 0, 1 y 2 reservados para la consola
+
+    TableFiles() {
+        for (int i = 0; i < MAX_FILES; i++) {
+            file[i] = NULL;
+            used[i] = (i < 3);
+        }
+    }
+};
+
 class AddrSpace {
   public:
     AddrSpace(OpenFile *executable);	// Create an address space,
@@ -32,12 +46,14 @@ class AddrSpace {
 
     void SaveState();			// Save/restore address space-specific
     void RestoreState();		// info on a context switch 
+    TableFiles *table;
 
   private:
     TranslationEntry *pageTable;	// Assume linear page table translation
 					// for now!
     unsigned int numPages;		// Number of pages in the virtual 
 					// address space
+    void charge_segment(OpenFile *executable, int virtual_addr,int size, int in_file_addr);
 };
 
 #endif // ADDRSPACE_H

@@ -25,6 +25,7 @@
 #include "utility.h"
 #include "translate.h"
 #include "disk.h"
+#include "bitmap.h"
 
 // Definitions related to the size, and format of user memory
 
@@ -35,6 +36,7 @@ const int PageSize = SectorSize; 	// set the page size equal to
 const int NumPhysPages = 32;
 const int MemorySize = NumPhysPages * PageSize;
 const int TLBSize = 4;			// if there is a TLB, make it small
+
 
 enum ExceptionType { NoException,           // Everything ok!
 		     SyscallException,      // A program executed a system call.
@@ -106,6 +108,7 @@ class Instruction {
 
 class Machine {
   public:
+	BitMap * bitmap_marc;			// Bitmap to keep track of free pages in memory
     Machine(bool debug);	// Initialize the simulation of the hardware
 				// for running user programs
     ~Machine();			// De-allocate the data structures
