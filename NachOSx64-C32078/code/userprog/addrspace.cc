@@ -96,6 +96,7 @@ AddrSpace::AddrSpace(OpenFile *executable)
 						// to leave room for the stack
     numPages = divRoundUp(size, PageSize);
     table = new TableFiles;
+    references = 1;
     size = numPages * PageSize;
 
     ASSERT(numPages <= (unsigned int)machine->bitmap_marc->NumClear());		// check we're not trying
@@ -188,6 +189,35 @@ AddrSpace::InitRegisters()
    // accidentally reference off the end!
     machine->WriteRegister(StackReg, numPages * PageSize - 16);
     DEBUG('a', "Initializing stack register to %d\n", numPages * PageSize - 16);
+}
+
+int AddrSpace::newStack()
+{
+    unsigned int news = PAGES_STACK_THREAD;
+    ASSERT(news <= (unsigned int)machine->bitmap_marc->NumClear());
+
+    TranslationEntry *newTable = new TranslationEntry[numPages + news];
+    for (unsigned int i = 0; i < numPages; i++)
+        newTable[i] = pageTable[i];
+
+    for (unsigned int i = numPages; i < numPages + news; i++) {
+        int marc = machine->bitmap_marc->Find();
+        newTable[i].virtualPage = i;
+        newTable[i].physicalPage = marc;
+        newTable[i].valid = true;
+        newTable[i].use = false;
+        newTable[i].dirty = false;
+        newTable[i].readOnly = false;
+        bzero(&(machine->mainMemory[marc * PageSize]), PageSize);
+    }
+
+    delete [] pageTable;
+    pageTable = newTable;
+    numPages += news;
+    machine->pageTable = pageTable;     
+    machine->pageTableSize = numPages;
+
+    return numPages * PageSize - 16;
 }
 
 //----------------------------------------------------------------------

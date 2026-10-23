@@ -34,6 +34,16 @@ extern Timer *timer;				// the hardware alarm clock
 #ifdef USER_PROGRAM
 #include "machine.h"
 extern Machine* machine;	// user program memory and registers
+
+#include "synch.h"
+#define MAX_PROCESS 32
+
+struct EntranceProcess {
+    bool used;
+    int status;
+    Semaphore *finished;
+};
+extern EntranceProcess tableProcess[MAX_PROCESS];
 #endif
 
 #ifdef FILESYS_NEEDED 		// FILESYS or FILESYS_STUB 

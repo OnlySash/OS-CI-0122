@@ -80,6 +80,48 @@ static bool copyToUser (int direccion, const char *origen, int cantidad)
     return true;
 }
 
+// pid 0 is free
+static int reserve_pid()
+{
+    for (int i = 1; i < MAX_PROCESS; i++) {
+        if (!tableProcess[i].used) {
+            tableProcess[i].used = true;
+            tableProcess[i].status = 0;
+            tableProcess[i].finished = new Semaphore("fin process", 0);
+            return i;
+        }
+    }
+    return -1;
+}
+
+static void excecProcess(void *arg)
+{
+    currentThread->space->InitRegisters();
+    currentThread->space->RestoreState();
+    machine->Run();
+}
+
+struct DataThread {
+    int pc;
+    int sp;
+};
+
+static void excecThreadUser(void *arg)
+{
+    DataThread *data = (DataThread *)arg;
+
+    for (int i = 0; i < NumTotalRegs; i++)
+        machine->WriteRegister(i, 0);
+    machine->WriteRegister(PCReg, data->pc);
+    machine->WriteRegister(NextPCReg, data->pc + 4);
+    machine->WriteRegister(StackReg, data->sp);
+    machine->WriteRegister(RetAddrReg, 8);   // ver nota abajo
+    delete data;
+
+    currentThread->space->RestoreState();
+    machine->Run();
+}
+
 /*
  *  System call interface: Halt()
  */
@@ -95,7 +137,13 @@ void NachOS_Halt() {		// System call 0
  *  System call interface: void Exit( int )
  */
 void NachOS_Exit() {		// System call 1
-   DEBUG('a', "Exit(%d)\n", machine->ReadRegister(4));
+    int estatus = machine->ReadRegister(4);
+    int pid = currentThread->pid;
+
+    if (pid > 0 && pid < MAX_PROCESS && tableProcess[pid].used) {
+        tableProcess[pid].status = estatus;
+        tableProcess[pid].finished->V();
+    }
    currentThread->Finish();
 
 }
@@ -105,6 +153,25 @@ void NachOS_Exit() {		// System call 1
  *  System call interface: SpaceId Exec( char * )
  */
 void NachOS_Exec() {		// System call 2
+   char name[128];
+    int pid = -1;
+
+    if (copyCharUser(machine->ReadRegister(4), name, sizeof(name))) {
+        OpenFile *excec = fileSystem->Open(name);
+        if (excec != NULL) {
+            pid = reserve_pid();
+            if (pid != -1) {
+                char *nameThread = new char[16];
+                strcpy(nameThread, "thread");
+                Thread *thread = new Thread(nameThread);
+                thread->pid = pid;
+                thread->space = new AddrSpace(excec);
+                thread->Fork(excecProcess, NULL);
+            }
+            delete excec;
+        }
+    }
+    machine->WriteRegister(2, pid);
 }
 
 
@@ -112,6 +179,16 @@ void NachOS_Exec() {		// System call 2
  *  System call interface: int Join( SpaceId )
  */
 void NachOS_Join() {		// System call 3
+   int pid = machine->ReadRegister(4);
+   int estatus = -1;
+
+    if (pid > 0 && pid < MAX_PROCESS && tableProcess[pid].used) {
+        tableProcess[pid].finished->P();
+        estatus = tableProcess[pid].status;
+        delete tableProcess[pid].finished;
+        tableProcess[pid].used = false;
+    }
+    machine->WriteRegister(2, estatus);
 }
 
 
@@ -119,9 +196,9 @@ void NachOS_Join() {		// System call 3
  *  System call interface: void Create( char * )
  */
 void NachOS_Create() {		// System call 4
-    char nombre[128];
-    if (copyCharUser(machine->ReadRegister(4), nombre, sizeof(nombre)))
-        fileSystem->Create(nombre, 0);
+    char name[128];
+    if (copyCharUser(machine->ReadRegister(4), name, sizeof(name)))
+        fileSystem->Create(name, 0);
 }
 
 
@@ -222,6 +299,18 @@ void NachOS_Close() {		// System call 8
  *  System call interface: void Fork( void (*func)() )
  */
 void NachOS_Fork() {		// System call 9
+   char *nameThread = new char[16];
+   strcpy(nameThread, "thread");
+
+   Thread *thread = new Thread(nameThread);
+   thread->space = currentThread->space;
+   thread->space->references++;
+
+   DataThread *data = new DataThread;
+   data->pc = machine->ReadRegister(4);
+   data->sp = thread->space->newStack();
+
+   thread->Fork(excecThreadUser, data);
 }
 
 

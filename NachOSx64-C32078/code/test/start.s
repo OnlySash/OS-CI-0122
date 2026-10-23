@@ -312,6 +312,12 @@ Shutdown:
 	j	$31
 	.end Shutdown
 
+MsgGet:
+MsgCtl:
+MsgRecv:
+MsgSend:
+
+
 /* dummy function to keep gcc happy */
         .globl  __main
         .ent    __main

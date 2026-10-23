@@ -59,6 +59,11 @@
 #define SC_Accept	34
 #define SC_Shutdown	35
 
+#define SC_MsgGet 100
+#define SC_MsgCtl 101
+#define SC_MsgRecv 102
+#define SC_MsgSend 103
+
 #define SC_User		0x0bcc
 #define SC_Base		032215
 #define SC_Ver		"2026-2"
@@ -234,6 +239,11 @@ int Accept( Socket_t SockId );
 
 /* Shutdowns a socket connection, mode indicates Read, Write, ReadWrite */
 int Shutdown( Socket_t SockId, int mode );
+
+int MsgGet( key_t key, int msgflg );
+int MsgCtl( int msqid, int cmd, struct msqid_ds *buf );
+int MsgRecv( int msqid, struct msgbuf *msgp, size_t msgsz, long msgtyp, int msgflg );
+int MsgSend( int msqid, const struct msgbuf *msgp, size_t msgsz, int msgflg );
 
 #endif /* IN_ASM */
 

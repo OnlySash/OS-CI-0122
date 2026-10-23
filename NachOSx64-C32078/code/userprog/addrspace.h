@@ -19,6 +19,7 @@
 #include "filesys.h"
 
 #define UserStackSize		1024 	// increase this as necessary!
+#define PAGES_STACK_THREAD       4	// number of pages for the stack of each thread
 
 #define MAX_FILES 32
 
@@ -36,6 +37,8 @@ struct TableFiles {
 
 class AddrSpace {
   public:
+    int references;
+    
     AddrSpace(OpenFile *executable);	// Create an address space,
 					// initializing it with the program
 					// stored in the file "executable"
@@ -43,7 +46,8 @@ class AddrSpace {
 
     void InitRegisters();		// Initialize user-level CPU registers,
 					// before jumping to user code
-
+    
+    int newStack();
     void SaveState();			// Save/restore address space-specific
     void RestoreState();		// info on a context switch 
     TableFiles *table;

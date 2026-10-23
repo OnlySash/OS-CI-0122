@@ -40,6 +40,7 @@ Thread::Thread(const char* threadName)
     status = JUST_CREATED;
 #ifdef USER_PROGRAM
     space = NULL;
+    pid = -1;
 #endif
 }
 
@@ -68,7 +69,8 @@ Thread::~Thread()
 	DeallocBoundedArray((char *) stack, StackSize * sizeof(HostMemoryAddress));
 
 #ifdef USER_PROGRAM
-    delete this->space;
+    if (space != NULL && --space->references == 0)
+        delete this->space;
 #endif
 
 }
