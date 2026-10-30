@@ -240,6 +240,26 @@ int Accept( Socket_t SockId );
 /* Shutdowns a socket connection, mode indicates Read, Write, ReadWrite */
 int Shutdown( Socket_t SockId, int mode );
 
+
+#ifdef USER_PROGRAM
+/* Kernel (compilado para Linux): tipos reales del anfitrión */
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/msg.h>
+#else
+// Programas de usuario (compilados para MIPS): mips-gcc no tiene esos headers 
+typedef int key_t;
+typedef unsigned int size_t;
+struct msqid_ds;
+struct msgbuf {
+    long mtype;
+    char mtext[1];
+};
+#define IPC_CREAT  01000
+#define IPC_NOWAIT 04000
+#define IPC_RMID   0
+#endif
+
 int MsgGet( key_t key, int msgflg );
 int MsgCtl( int msqid, int cmd, struct msqid_ds *buf );
 int MsgRecv( int msqid, struct msgbuf *msgp, size_t msgsz, long msgtyp, int msgflg );

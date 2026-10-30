@@ -454,6 +454,53 @@ void NachOS_Accept() {		// System call 34
 void NachOS_Shutdown() {	// System call 25
 }
 
+void NachOS_MsgGet() {
+    machine->WriteRegister(2, msgget((key_t)machine->ReadRegister(4),
+                                     machine->ReadRegister(5)));
+}
+
+void NachOS_MsgCtl() {
+    int resultado = -1;
+    if (machine->ReadRegister(6) == 0)      // solo IPC_RMID (sin buffer)
+        resultado = msgctl(machine->ReadRegister(4), machine->ReadRegister(5), NULL);
+    machine->WriteRegister(2, resultado);
+}
+
+void NachOS_MsgSend() {
+    int id = machine->ReadRegister(4);
+    int direccion = machine->ReadRegister(5);
+    int tamano = machine->ReadRegister(6);
+    int flags = machine->ReadRegister(7);
+    int resultado = -1, tipo;
+
+    char *buffer = new char[sizeof(long) + tamano];
+    if (machine->ReadMem(direccion, 4, &tipo) &&
+        copyFromUser(direccion + 4, buffer + sizeof(long), tamano)) {
+        *(long *)buffer = tipo;
+        resultado = msgsnd(id, buffer, tamano, flags);
+    }
+    delete [] buffer;
+    machine->WriteRegister(2, resultado);
+}
+
+void NachOS_MsgRecv() {
+    int id = machine->ReadRegister(4);
+    int direccion = machine->ReadRegister(5);
+    int tamano = machine->ReadRegister(6);
+    long tipo_pedido = (int)machine->ReadRegister(7);
+    int flags = 0, resultado = -1;
+
+    machine->ReadMem(machine->ReadRegister(StackReg) + 16, 4, &flags);
+
+    char *buffer = new char[sizeof(long) + tamano];
+    int n = msgrcv(id, buffer, tamano, tipo_pedido, flags);
+    if (n >= 0 && machine->WriteMem(direccion, 4, (int)*(long *)buffer) &&
+        copyToUser(direccion + 4, buffer + sizeof(long), n))
+        resultado = n;
+    delete [] buffer;
+    machine->WriteRegister(2, resultado);
+}
+
 
 //----------------------------------------------------------------------
 // ExceptionHandler
@@ -583,6 +630,19 @@ ExceptionHandler(ExceptionType which)
              case SC_Shutdown:	// System call # 33
 		NachOS_Shutdown();
                break;
+                case SC_MsgGet:	// System call # 100
+                    NachOS_MsgGet();
+                    break;
+                case SC_MsgCtl:	// System call # 101
+                    NachOS_MsgCtl();
+                    break;
+                case SC_MsgSend:	// System call # 103
+                    NachOS_MsgSend();
+                    break;
+                case SC_MsgRecv:	// System call # 102
+                    NachOS_MsgRecv();
+                    break;  
+                    
 
              default:
                 printf("NachOS version: %d-%d\n", (SC_User + SC_NachOS)/10, (SC_Base + SC_NachOS)%10 );

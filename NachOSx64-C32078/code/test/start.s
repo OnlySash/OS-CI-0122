@@ -312,10 +312,41 @@ Shutdown:
 	j	$31
 	.end Shutdown
 
+	.globl MsgGet
+	.ent	MsgGet
 MsgGet:
+	addiu $2,$0,SC_MsgGet
+	addiu $2,$2,SC_User
+	syscall
+	j	$31
+	.end MsgGet
+
+	.globl MsgCtl
+	.ent	MsgCtl
 MsgCtl:
+	addiu $2,$0,SC_MsgCtl
+	addiu $2,$2,SC_User
+	syscall
+	j	$31
+	.end MsgCtl
+
+	.globl MsgRecv
+	.ent	MsgRecv
 MsgRecv:
+	addiu $2,$0,SC_MsgRecv
+	addiu $2,$2,SC_User
+	syscall
+	j	$31
+	.end MsgRecv
+
+	.globl MsgSend
+	.ent	MsgSend
 MsgSend:
+	addiu $2,$0,SC_MsgSend
+	addiu $2,$2,SC_User
+	syscall
+	j	$31
+	.end MsgSend
 
 
 /* dummy function to keep gcc happy */
