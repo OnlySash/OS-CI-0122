@@ -37,7 +37,7 @@ INCDIR =-I../userprog -I../threads
 # Corrects the error: dangerous relocation GP
 CFLAGS = -c $(INCDIR) -mips1 -G 0
 
-all: addrspacetest copy create fork ForkExec halt matmult matmult20 matmult5 memory pingPong shell SimpleFork socket sort sort-ok start.o todos
+all: addrspacetest copy create fork ForkExec halt matmult matmult20 matmult5 memory pingPong shell SimpleFork socket sort sort-ok start.o todos processes threads files buzon bpadre bhijo
 
 start.o: start.s ../userprog/syscall.h
 	$(CPP) $(CPPFLAGS) start.s > strt.s
@@ -68,6 +68,42 @@ matmult: matmult.o start.o
 	$(LD) $(LDFLAGS) start.o matmult.o -o matmult.coff
 	../bin/coff2noff matmult.coff matmult
 
+processes.o: processes.c
+	$(CC) $(CFLAGS) -c processes.c
+processes: processes.o start.o
+	$(LD) $(LDFLAGS) start.o processes.o -o processes.coff
+	../bin/coff2noff processes.coff processes
+
+threads.o: threads.c
+	$(CC) $(CFLAGS) -c threads.c
+threads: threads.o start.o
+	$(LD) $(LDFLAGS) start.o threads.o -o threads.coff
+	../bin/coff2noff threads.coff threads
+
+files.o: files.c
+	$(CC) $(CFLAGS) -c files.c
+files: files.o start.o
+	$(LD) $(LDFLAGS) start.o files.o -o files.coff
+	../bin/coff2noff files.coff files
+
+buzon.o: buzon.c
+	$(CC) $(CFLAGS) -c buzon.c
+buzon: buzon.o start.o
+	$(LD) $(LDFLAGS) start.o buzon.o -o buzon.coff
+	../bin/coff2noff buzon.coff buzon
+
+bpadre.o: bpadre.c
+	$(CC) $(CFLAGS) -c bpadre.c
+bpadre: bpadre.o start.o
+	$(LD) $(LDFLAGS) start.o bpadre.o -o bpadre.coff
+	../bin/coff2noff bpadre.coff bpadre
+
+bhijo.o: bhijo.c
+	$(CC) $(CFLAGS) -c bhijo.c
+bhijo: bhijo.o start.o
+	$(LD) $(LDFLAGS) start.o bhijo.o -o bhijo.coff
+	../bin/coff2noff bhijo.coff bhijo
+
 
 # Estas reglas sirven para compilar programas simples, que consistan en un unico fuente
 # Las reglas anteriores para construir los ejecutables
@@ -81,5 +117,5 @@ matmult: matmult.o start.o
 
 clean:
 	$(RM) *.o *.coff
-	$(RM) addrspacetest copy create fork ForkExec halt matmult matmult20 matmult5 memory pingPong shell SimpleFork socket sort sort-ok start.o todos
+	$(RM) addrspacetest copy create fork ForkExec halt matmult matmult20 matmult5 memory pingPong shell SimpleFork socket sort sort-ok start.o todos processes threads files buzon bpadre bhijo
 
